@@ -17,5 +17,6 @@ print(re)
 cursor.close()
 # 提交事物
 conn.commit()
+
 # 关闭连接
 conn.close()
