@@ -8,3 +8,6 @@ def get_region(id):
     cursor.execute(SQL)
     re = cursor.fetchall()
     return re[0][1]
+
+print(get_region('110107199908761234'))
+
