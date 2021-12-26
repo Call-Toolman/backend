@@ -53,16 +53,18 @@ def query_db(query, args=(), onlyonerow=False):
 
 class HandleUserSignup(restful.Resource):
     @use_args({
-        'name': fields.Str(required=True),
+        'username': fields.Str(required=True),
         'password': fields.Str(required=True),
         'phone_num': fields.Str(required=True),
         'description': fields.Str(required=True, allow_none=True),
+        'real_name': fields.Str(required=True),
         'identity_type': fields.Integer(required=True),
         'identity_num': fields.Str(required=True),
         'city': fields.Str(required=True),
+        'community': fields.Str(required=True)
     }, location='json')
     def post(self, args):
-        userexist = query_db('select count(*) as count from user where name = ?', (args['name'],), onlyonerow=True)['count']
+        userexist = query_db('select count(*) as count from user where username = ?', (args['username'],), onlyonerow=True)['count']
         if userexist == 1:
             return {'result': 'fail', 'errMsg': 'user name exist, change a name'}
         else:
@@ -71,22 +73,22 @@ class HandleUserSignup(restful.Resource):
             userType = 1
             nowTime = query_db('select date("now") as now', onlyonerow=True)['now']
             c = g.db.cursor()
-            c.execute('insert into user (id, name, password, phone_num, description, user_type, identity_type, identity_num, level, city, signup_time, modify_time) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (newID, args['name'], args['password'], args['phone_num'], args['description'], userType, args['identity_type'], args['identity_num'], 1, args['city'], nowTime, nowTime))
-            g.db.commit()
+            c.execute('insert into user (id, username, password, phone_num, description, real_name, user_type, identity_type, identity_num, level, city, signup_time, modify_time, community) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (newID, args['username'], args['password'], args['phone_num'], args['description'], args['real_name'], userType, args['identity_type'], args['identity_num'], 1, args['city'], nowTime, nowTime, args['community']))
+            g.db.commit() 
             return {'result': 'success'}
 
 
 class CheckUserSignin(restful.Resource):
     @use_args({
-        'name': fields.Str(required=True),
+        'username': fields.Str(required=True),
         'password': fields.Str(required=True)
-    }, location='query')
+    }, location='json')
     def get(self, args):
-        userexist = query_db('select count(*) as count from user where name = ?', (args['name'],), onlyonerow=True)['count']
+        userexist = query_db('select count(*) as count from user where username = ?', (args['username'],), onlyonerow=True)['count']
         if userexist == 1:
-            rightpassword = query_db('select count(*) as count from user where name = ? and password = ?', (args['name'], args['password']), onlyonerow=True)['count']
+            rightpassword = query_db('select count(*) as count from user where username = ? and password = ?', (args['username'], args['password']), onlyonerow=True)['count']
             if rightpassword == 1:
-                userinfo = query_db('select id, name, phone_num, description, user_type, identity_type, identity_num, level, city from user where name = ?', (args['name'],))
+                userinfo = query_db('select id, username, phone_num, description, real_name, user_type, identity_type, identity_num, level, city, community from user where username = ?', (args['username'],))
                 return {'result': 'success', 'userinfo': userinfo}
             else:
                 return {'result': 'fail', 'errMsg': 'wrong password'}
@@ -94,31 +96,31 @@ class CheckUserSignin(restful.Resource):
             return {'result': 'fail', 'errMsg': 'user not exist'}
 
 
-class ChangeUserInfo(restful.Resource):
+class UpdateUserInfo(restful.Resource):
     @use_args({
-        'user': fields.Str(required=True),
+        'username': fields.Str(required=True),
         'password': fields.Str(required=True, allow_none=True),
-        'phone': fields.Str(required=True),
+        'phone_num': fields.Str(required=True),
         'description': fields.Str(required=True, allow_none=True)
     }, location='json')
     def post(self, args):
         nowTime = query_db('select date("now") as now', onlyonerow=True)['now']
         if args['password']:
             c = g.db.cursor()
-            c.execute('update user set password = ?, phone_num = ? , description = ? , modify_time = ? where name = ?', (args['password'], args['phone'], args['description'], nowTime, args['user']))
+            c.execute('update user set password = ?, phone_num = ? , description = ? , modify_time = ? where username = ?', (args['password'], args['phone_num'], args['description'], nowTime, args['username']))
             g.db.commit()
         else:
             c = g.db.cursor()
-            c.execute('update user set phone_num = ? , description = ? , modify_time = ? where name = ?', (args['phone'], args['description'], nowTime, args['user']))
+            c.execute('update user set phone_num = ? , description = ? , modify_time = ? where username = ?', (args['phone_num'], args['description'], nowTime, args['username']))
             g.db.commit()
         
-        userinfo = query_db('select name, phone_num, description, user_type, identity_type, identity_num, level, city from user where name = ?', (args['user'],))
+        userinfo = query_db('select id, username, phone_num, description, real_name, user_type, identity_type, identity_num, level, city, community from user where username = ?', (args['username'],))
         return {'result': 'success', 'userinfo': userinfo}
 
 
 class GetUserList(restful.Resource):
     def get(self):
-        userinfo = query_db('select name, phone_num, description, user_type, identity_type, identity_num, level, city, modify_time from user')
+        userinfo = query_db('select id, username, phone_num, description, real_name, user_type, identity_type, identity_num, level, city, community from user')
         return {'result': 'success', 'userinfo': userinfo}
 
 
@@ -189,7 +191,7 @@ class GetCallupList(restful.Resource):
     def get(self):
         callupinfo = query_db('select callup.id as id, user.name as owner, user.id as owner_id, callup.name as name, callup.type as type, user.city as city, callup.description as description, callup.member as member, end_time, img, create_time as ctime, callup.modify_time as mtime, callup.state as state from user inner join callup on user.id = callup.user_id')
         for i in range(len(callupinfo)):
-            callupinfo[i]['requests'] = query_db('select c.id as id, c.user_id as user_id, u.name as user_name, c.description as description, c.state as state from callup_request as c inner join user as u on c.user_id = u.id where callup_id = ?', (callupinfo[i]['id'],))
+            callupinfo[i]['requests'] = query_db('select c.id as id, c.user_id as user_id, u.name as user_name, c.description as description, c.state as state from callup_response as c inner join user as u on c.user_id = u.id where callup_id = ?', (callupinfo[i]['id'],))
 
         return {'result': 'success', 'callupinfo': callupinfo}
 
@@ -205,7 +207,7 @@ class AddRequest(restful.Resource):
         userID = query_db('select id from user where name = ?', (args['user'],), onlyonerow=True)['id']
         nowTime = query_db('select date("now") as now', onlyonerow=True)['now']
         c = g.db.cursor()
-        c.execute("insert into callup_request (callup_id, user_id, description, create_time, modify_time, state) values (?, ?, ?, ?, ?, ?)", (args['id'], userID, args['description'], nowTime, nowTime, 1))
+        c.execute("insert into callup_response (callup_id, user_id, description, create_time, modify_time, state) values (?, ?, ?, ?, ?, ?)", (args['id'], userID, args['description'], nowTime, nowTime, 1))
         g.db.commit()
         return {'result': 'success'}
 
@@ -218,7 +220,7 @@ class ChangeRequest(restful.Resource):
     def post(self, args):
         nowTime = query_db('select date("now") as now', onlyonerow=True)['now']
         c = g.db.cursor()
-        c.execute("update callup_request set description = ? , modify_time = ? where id = ?", (args['description'], nowTime, args['id']))
+        c.execute("update callup_response set description = ? , modify_time = ? where id = ?", (args['description'], nowTime, args['id']))
         g.db.commit()
         return {'result': 'success'}
 
@@ -230,7 +232,7 @@ class ManageRequest(restful.Resource):
     }, location='json')
     def post(self, args):
         c = g.db.cursor()
-        c.execute("update callup_request set state = ? where id = ?", (args['state'], args['id']))
+        c.execute("update callup_response set state = ? where id = ?", (args['state'], args['id']))
         g.db.commit()
         return {'result': 'success'}
 
@@ -264,10 +266,10 @@ class test_api(restful.Resource):
     def post(self, args):
         return {'id':args["id"]}
 
-api.add_resource(HandleUserSignup, '/signup')
-api.add_resource(CheckUserSignin, '/signin')
-api.add_resource(ChangeUserInfo, '/changeuserinfo')
-api.add_resource(GetUserList, '/userlist')
+api.add_resource(HandleUserSignup, '/api/signup')
+api.add_resource(CheckUserSignin, '/api/login')
+api.add_resource(UpdateUserInfo, '/api/user/update_info')
+api.add_resource(GetUserList, '/api/admin/user_list')
 api.add_resource(GetCallupList, '/calluplist')
 
 api.add_resource(AddRequest, '/addreq')
