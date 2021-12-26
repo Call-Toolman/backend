@@ -1,6 +1,6 @@
 from flask import Flask, g, request
 from webargs import fields
-from webargs.flaskparser import use_args
+from webargs.flaskparser import use_args, use_kwargs
 import flask_cors
 import flask_restful as restful
 import sqlite3
@@ -257,6 +257,12 @@ class CallUpStastic(restful.Resource):
             g.db.commit()
         return {'result': 'success', 'profit': profit}
 
+class test_api(restful.Resource):
+    @use_args({
+        'id':fields.Integer(required=True)
+    },location='json')
+    def post(self, args):
+        return {'id':args["id"]}
 
 api.add_resource(HandleUserSignup, '/signup')
 api.add_resource(CheckUserSignin, '/signin')
@@ -273,10 +279,12 @@ api.add_resource(ChangeCallUp, '/changecallup')
 
 api.add_resource(CallUpStastic, '/callupstastic')
 
+api.add_resource(test_api, '/test')
+
 
 
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', debug=True)
+  app.run(host='127.0.0.1', debug=True)
 
 
 
